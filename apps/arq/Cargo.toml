@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 clap = "2.33.3"
 oxigraph = "0.2.1"
+arq-lib = { path = "../../libs/arq-lib" }

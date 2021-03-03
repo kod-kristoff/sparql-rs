@@ -38,9 +38,15 @@ impl PrefixMap {
 
     pub fn replace_with_prefix(&self, s: &str) -> String {
         for (prefix, value) in &self.map {
-            if s[1..].starts_with(value) {
-                let index = value.len() + 1;
-                return format!("{}:{}", prefix, &s[index..s.len()-1]);
+            if s.starts_with('<') {
+                if s[1..].starts_with(value) {
+                    let index = value.len() + 1;
+                    return format!("{}:{}", prefix, &s[index..s.len()-1]);
+                }
+            } else {
+                if s.starts_with(value) {
+                    return format!("{}:{}", prefix, &s[value.len()..]);
+                }
             }
         }
         s.to_owned()
