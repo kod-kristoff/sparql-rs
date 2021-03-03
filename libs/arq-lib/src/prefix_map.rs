@@ -23,7 +23,6 @@ impl PrefixMap {
         }
 
         if let Some(caps) = PREFIX.captures(data) {
-            println!("{} - {}", &caps[1], &caps[2]);
             self.map.push(
                 (
                     caps.get(1).unwrap().as_str().to_owned(),

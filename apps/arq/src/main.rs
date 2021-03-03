@@ -1,4 +1,6 @@
 use std::io;
+use std::path;
+use std::ffi::OsString;
 
 fn main() {
     match cli() {
@@ -16,6 +18,8 @@ enum ArqError {
     EvaluateQuery(oxigraph::sparql::EvaluationError),
     ParseQuery(oxigraph::sparql::ParseError),
     FileNotFound(String, io::Error),
+    UnknownGraphFormat,
+    UnsupportedGraphFormat(OsString),
 }
 
 impl From<io::Error> for ArqError {
@@ -44,13 +48,12 @@ fn cli() -> Result<(), ArqError> {
     use std::io::BufReader;
     use std::str::FromStr;
     use oxigraph::MemoryStore;
-    use oxigraph::io::GraphFormat;
     use oxigraph::model::*;
     use oxigraph::sparql::{Query, QueryResults, QueryResultsFormat};
     use arq_lib::prefix_map::PrefixMap;
 
     let matches = App::new("arq")
-        .version("0.1.0")
+        .version("0.2.0")
         .about("SparQL command processor.")
         .author("Kristoffer Andersson")
         .arg(Arg::with_name("data")
@@ -73,9 +76,9 @@ fn cli() -> Result<(), ArqError> {
         let data_path = Path::new(data);
         let f = File::open(data_path)
             .map_err(|e| ArqError::FileNotFound(String::from_str(data).unwrap(), e))?;
-        assert_eq!(data_path.extension().unwrap(), GraphFormat::Turtle.file_extension());
         let f = BufReader::new(f);
-        store.load_graph(f, GraphFormat::Turtle, &GraphName::DefaultGraph, None)?;
+        
+        store.load_graph(f, guess_graph_format(&data_path)?, &GraphName::DefaultGraph, None)?;
 
     }
 
@@ -94,7 +97,6 @@ fn cli() -> Result<(), ArqError> {
     println!("");
     let mut result: Vec<Vec<String>> = Vec::new();
     if let QueryResults::Solutions(solutions) = store.query(query)? {
-        println!("variables: {:?}", solutions.variables());
         let mut vars = Vec::with_capacity(solutions.variables().len());
         for var in solutions.variables() {
             vars.push((var.clone()).into_string());
@@ -153,4 +155,23 @@ fn cli() -> Result<(), ArqError> {
     }
     println!("{}", "-".repeat(widths_total));
     Ok(())
+}
+
+fn guess_graph_format(path: &path::Path) -> Result<oxigraph::io::GraphFormat, ArqError> {
+    use oxigraph::io::GraphFormat;
+
+    match path.extension() {
+        None => Err(ArqError::UnknownGraphFormat),
+        Some(ext) => {
+            if ext == GraphFormat::Turtle.file_extension() {
+                return Ok(GraphFormat::Turtle);
+            } else if ext == GraphFormat::NTriples.file_extension() {
+                return Ok(GraphFormat::NTriples);
+            } else if ext == GraphFormat::RdfXml.file_extension() {
+                return Ok(GraphFormat::RdfXml);
+            } else {
+                return Err(ArqError::UnsupportedGraphFormat(ext.to_owned()));
+            }
+        }
+    }
 }
